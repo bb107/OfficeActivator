@@ -1,0 +1,3 @@
+LIBRARY SppcHook
+EXPORTS
+DllMain @1 NONAME
