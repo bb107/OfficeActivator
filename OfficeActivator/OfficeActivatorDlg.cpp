@@ -6,6 +6,7 @@
 #include "Helps.h"
 #include "PeFile.h"
 #include "Sppc.h"
+#include "Mutex.h"
 #include <vector>
 #include <map>
 
@@ -36,6 +37,7 @@ LPCTSTR g_TypeTable[] = {
 	_T("ul.xrm-ms"),
 	_T("pl.xrm-ms"),
 };
+HANDLE g_Mutex;
 
 typedef struct _OSP_LICENSE {
 
@@ -283,6 +285,9 @@ BOOL COfficeActivatorDlg::OnInitDialog()
 	SetIcon(m_hIcon, TRUE);			// Set big icon
 	SetIcon(m_hIcon, FALSE);		// Set small icon
 
+	g_Mutex = CreateGlobalMutex();
+	ASSERT(g_Mutex);
+
 	CListCtrl* list = static_cast<CListCtrl*>(GetDlgItem(IDC_LIST_INSTALLED_LICENSE));
 	ASSERT(list);
 	InitializeListControl(list);
@@ -293,7 +298,7 @@ BOOL COfficeActivatorDlg::OnInitDialog()
 	InitializeProductKeyList(pks);
 
 	if (!IsUserAnAdmin()) {
-		int buttons[] = { IDC_BUTTON_PATCH,IDC_BUTTON_RESTORE,IDC_BUTTON_INSTALL_PKEY,IDC_BUTTON_INSTALL_LIC,IDC_BUTTON_UNINSTALL_LIC,IDC_BUTTON_UNINSTALL_PKEY };
+		int buttons[] = { IDC_BUTTON_PATCH,IDC_BUTTON_RESTORE,IDC_BUTTON_INSTALL_PKEY,IDC_BUTTON_INSTALL_LIC,IDC_BUTTON_UNINSTALL_LIC,IDC_BUTTON_UNINSTALL_PKEY, IDC_BUTTON_SVC_MANAGE };
 		for (int i = 0; i < sizeof(buttons) / sizeof(int); ++i) {
 			CButton* btn = static_cast<CButton*>(GetDlgItem(buttons[i]));
 			ASSERT(btn);
@@ -415,6 +420,8 @@ void COfficeActivatorDlg::OnBnClickedButtonAutoDetect()
 
 void COfficeActivatorDlg::OnBnClickedButtonCheckPatchStatus()
 {
+	WaitForSingleObject(g_Mutex, INFINITE);
+
 	DWORD checkResult = 0;
 	CString officePath, msoPath;
 	if (GetDlgItemText(IDC_EDIT_OFFICE_PATH, officePath) == 0 ||
@@ -483,14 +490,12 @@ void COfficeActivatorDlg::OnBnClickedButtonCheckPatchStatus()
 
 	officePatch->Invalidate();
 	msoPatch->Invalidate();
+
+	ReleaseMutex(g_Mutex);
 }
 
-void COfficeActivatorDlg::OnBnClickedButtonPatch()
+void COfficeActivatorDlg::OnBnClickedButtonPatchInternal()
 {
-	if (MessageBox(_T("DO YOU REALLY WANT TO APPLY PATCH?"), _T("WARNING"), MB_YESNOCANCEL | MB_ICONWARNING) != IDYES) {
-		return;
-	}
-
 	if (m_PatchState == ~0) {
 		MessageBox(_T("Please check patch state first!"), _T("Error"));
 		return;
@@ -576,16 +581,27 @@ void COfficeActivatorDlg::OnBnClickedButtonPatch()
 		}
 
 	} while (false);
-
-	OnBnClickedButtonCheckPatchStatus();
 }
 
-void COfficeActivatorDlg::OnBnClickedButtonRestore()
-{
-	if (MessageBox(_T("DO YOU REALLY WANT TO RESTORE PATCH?"), _T("WARNING"), MB_YESNOCANCEL | MB_ICONWARNING) != IDYES) {
+void COfficeActivatorDlg::OnBnClickedButtonPatch() {
+	if (MessageBox(_T("DO YOU REALLY WANT TO APPLY PATCH?"), _T("WARNING"), MB_YESNOCANCEL | MB_ICONWARNING) != IDYES) {
 		return;
 	}
 
+	WaitForSingleObject(g_Mutex, INFINITE);
+	OnBnClickedButtonCheckPatchStatus();
+
+	__try {
+		OnBnClickedButtonPatchInternal();
+	}
+	__finally {
+		OnBnClickedButtonCheckPatchStatus();
+		ReleaseMutex(g_Mutex);
+	}
+}
+
+void COfficeActivatorDlg::OnBnClickedButtonRestoreInternal()
+{
 	if (m_PatchState == ~0) {
 		MessageBox(_T("Please check patch state first!"), _T("Error"));
 		return;
@@ -636,11 +652,26 @@ void COfficeActivatorDlg::OnBnClickedButtonRestore()
 			return;
 		}
 	}
+}
 
-	//
-	// Update patch status.
-	//
+void COfficeActivatorDlg::OnBnClickedButtonRestore() {
+	if (MessageBox(_T("DO YOU REALLY WANT TO RESTORE PATCH?\n(Maybe you need disable or delete OfficeActivatorSvc)"), _T("WARNING"), MB_YESNOCANCEL | MB_ICONWARNING) != IDYES) {
+		return;
+	}
+
+	WaitForSingleObject(g_Mutex, INFINITE);
 	OnBnClickedButtonCheckPatchStatus();
+
+	__try {
+		OnBnClickedButtonRestoreInternal();
+	}
+	__finally {
+		//
+		// Update patch status.
+		//
+		OnBnClickedButtonCheckPatchStatus();
+		ReleaseMutex(g_Mutex);
+	}
 }
 
 void COfficeActivatorDlg::OnBnClickedButtonUpdateLic()

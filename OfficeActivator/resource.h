@@ -34,8 +34,9 @@
 #define IDC_COMBO_PRODUCT_KEY           1025
 #define IDC_BUTTON_INSTALL_LIC          1026
 #define IDC_BUTTON_INSTALL_PKEY         1027
-#define IDC_COMBO_LICENSES2             1028
 #define IDC_COMBO_LICENSES_VERSION      1028
+#define IDC_BUTTON1                     1029
+#define IDC_BUTTON_SVC_MANAGE           1029
 
 // Next default values for new objects
 // 
@@ -43,7 +44,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        131
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1027
+#define _APS_NEXT_CONTROL_VALUE         1030
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

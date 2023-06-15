@@ -28,6 +28,9 @@ private:
 
 	VOID AutoDetectOffice();
 
+	void OnBnClickedButtonPatchInternal();
+	void OnBnClickedButtonRestoreInternal();
+
 // Implementation
 protected:
 	HICON m_hIcon;
