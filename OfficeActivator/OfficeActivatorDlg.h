@@ -54,4 +54,5 @@ public:
 	afx_msg void OnCbnSelchangeComboLicensesVersion();
 	afx_msg void OnBnClickedButtonInstallLic();
 	afx_msg void OnBnClickedButtonUninstallLic();
+	afx_msg void OnBnClickedButtonSvcManage();
 };

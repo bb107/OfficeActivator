@@ -191,6 +191,7 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ServiceManageDlg.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Helps.h" />
     <ClInclude Include="Mutex.h" />
@@ -204,6 +205,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ServiceManageDlg.cpp" />
     <ClCompile Include="Helps.cpp" />
     <ClCompile Include="Mutex.cpp" />
     <ClCompile Include="OfficeActivator.cpp" />

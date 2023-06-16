@@ -1,14 +1,11 @@
 #include "pch.h"
 #include "framework.h"
 #include <winsvc.h>
-#include <string>
 #include "Service.h"
 #include "PeFile.h"
 #include "Helps.h"
 #include "Mutex.h"
 #pragma comment(lib, "advapi32.lib")
-
-#define SVCNAME TEXT("OfficeActivatorSvc")
 
 SERVICE_STATUS          gSvcStatus;
 SERVICE_STATUS_HANDLE   gSvcStatusHandle;
@@ -17,8 +14,9 @@ HANDLE                  ghThread;
 HANDLE                  ghMutex;
 LPCTSTR                 glpMSO;
 
-VOID SvcReportEvent(LPTSTR szFunction) {
-
+VOID SvcWriteLog(LPTSTR szModule, LPTSTR szText) {
+    UNREFERENCED_PARAMETER(szModule);
+    UNREFERENCED_PARAMETER(szText);
 }
 
 VOID PatchMSO() {
@@ -57,7 +55,7 @@ DWORD WINAPI ThreadProc(PVOID) {
     };
 
     if (INVALID_HANDLE_VALUE == handles[0] || !handles[0]) {
-        SvcReportEvent(TEXT("ThreadProc"));
+        SvcWriteLog(TEXT("ThreadProc"), TEXT("FindFirstChangeNotification failed"));
         return GetLastError();
     }
 
@@ -65,12 +63,13 @@ DWORD WINAPI ThreadProc(PVOID) {
         switch (WaitForMultipleObjects(sizeof(handles) / sizeof(HANDLE), handles, FALSE, INFINITE)) {
         case WAIT_OBJECT_0:
             
-            PatchMSO();
-
             if (!FindNextChangeNotification(handles[0])) {
+                SvcWriteLog(TEXT("ThreadProc"), TEXT("FindNextChangeNotification failed"));
                 FindCloseChangeNotification(handles[0]);
                 return GetLastError();
             }
+
+            PatchMSO();
 
             break;
 
@@ -79,7 +78,7 @@ DWORD WINAPI ThreadProc(PVOID) {
             return 0;
 
         default:
-            SvcReportEvent(TEXT("ThreadProc"));
+            SvcWriteLog(TEXT("ThreadProc"), TEXT("WaitForMultipleObjects failed"));
             return GetLastError();
         }
     }
@@ -137,45 +136,47 @@ VOID WINAPI SvcMain(DWORD dwArgc, LPTSTR* lpszArgv) {
     int argc;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
 
-    gSvcStatusHandle = RegisterServiceCtrlHandler(SVCNAME, SvcCtrlHandler);
-    if (!gSvcStatusHandle) {
-        SvcReportEvent(TEXT("RegisterServiceCtrlHandler"));
-        return;
-    }
+    do {
+        gSvcStatusHandle = RegisterServiceCtrlHandler(SVCNAME, SvcCtrlHandler);
+        if (!gSvcStatusHandle) {
+            SvcWriteLog(TEXT("SvcMain"), TEXT("RegisterServiceCtrlHandler failed"));
+            break;
+        }
 
-    gSvcStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
-    gSvcStatus.dwServiceSpecificExitCode = 0;
+        gSvcStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
+        gSvcStatus.dwServiceSpecificExitCode = 0;
 
-    ReportSvcStatus(SERVICE_START_PENDING, NO_ERROR, 3000);
+        ReportSvcStatus(SERVICE_START_PENDING, NO_ERROR, 3000);
 
-    if (argc != 3 || _tcscmp(_T("-mso"), argv[1])) {
-        ReportSvcStatus(SERVICE_STOPPED, ERROR_INVALID_PARAMETER, 0);
-        return;
-    }
+        if (argc != 3 || _tcscmp(_T("-mso"), argv[1])) {
+            ReportSvcStatus(SERVICE_STOPPED, ERROR_INVALID_PARAMETER, 0);
+            break;
+        }
 
-    ghSvcStopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-    if (ghSvcStopEvent == NULL) {
-        ReportSvcStatus(SERVICE_STOPPED, GetLastError(), 0);
-        return;
-    }
+        ghSvcStopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+        if (ghSvcStopEvent == NULL) {
+            ReportSvcStatus(SERVICE_STOPPED, GetLastError(), 0);
+            break;
+        }
 
-    ghMutex = CreateGlobalMutex();
-    if (ghMutex == NULL) {
-        ReportSvcStatus(SERVICE_STOPPED, GetLastError(), 0);
-        return;
-    }
+        ghMutex = CreateGlobalMutex();
+        if (ghMutex == NULL) {
+            ReportSvcStatus(SERVICE_STOPPED, GetLastError(), 0);
+            break;
+        }
 
-    glpMSO = argv[2];
-    ghThread = CreateThread(NULL, 0, ThreadProc, NULL, 0, NULL);
-    if (ghThread == NULL) {
-        ReportSvcStatus(SERVICE_STOPPED, GetLastError(), 0);
-        return;
-    }
+        glpMSO = argv[2];
+        ghThread = CreateThread(NULL, 0, ThreadProc, NULL, 0, NULL);
+        if (ghThread == NULL) {
+            ReportSvcStatus(SERVICE_STOPPED, GetLastError(), 0);
+            break;
+        }
 
-    ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
-    WaitForSingleObject(ghThread, INFINITE);
-    ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
-    return;
+        ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
+        WaitForSingleObject(ghThread, INFINITE);
+        ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
+    } while (false);
+
 }
 
 BOOL WINAPI SvcRun() {

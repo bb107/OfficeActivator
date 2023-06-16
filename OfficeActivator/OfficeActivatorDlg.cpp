@@ -7,6 +7,8 @@
 #include "PeFile.h"
 #include "Sppc.h"
 #include "Mutex.h"
+#include <winsvc.h>
+#include "ServiceManageDlg.h"
 #include <vector>
 #include <map>
 
@@ -341,7 +343,8 @@ BEGIN_MESSAGE_MAP(COfficeActivatorDlg, CDialogEx)
 	ON_CBN_SELCHANGE(IDC_COMBO_LICENSES_VERSION, &COfficeActivatorDlg::OnCbnSelchangeComboLicensesVersion)
 	ON_BN_CLICKED(IDC_BUTTON_INSTALL_LIC, &COfficeActivatorDlg::OnBnClickedButtonInstallLic)
 	ON_BN_CLICKED(IDC_BUTTON_UNINSTALL_LIC, &COfficeActivatorDlg::OnBnClickedButtonUninstallLic)
-	
+	ON_BN_CLICKED(IDC_BUTTON_SVC_MANAGE, &COfficeActivatorDlg::OnBnClickedButtonSvcManage)
+
 	ON_WM_CTLCOLOR()
 END_MESSAGE_MAP()
 
@@ -918,4 +921,19 @@ void COfficeActivatorDlg::OnBnClickedButtonUninstallLic()
 	MessageBox(msg, _T("Info"));
 
 	OnBnClickedButtonUpdateLic();
+}
+
+void COfficeActivatorDlg::OnBnClickedButtonSvcManage()
+{
+	CString app;
+	CString mso;
+	GetDlgItemText(IDC_EDIT_MSO_PATH, mso);
+
+	AfxGetModuleFileName(AfxGetInstanceHandle(), app);
+
+	CString path;
+	path.Format(_T("%s -mso \"%s\""), app, mso);
+
+	CServiceManageDlg dlg(path);
+	dlg.DoModal();
 }
