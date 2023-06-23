@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "framework.h"
 #include <winsvc.h>
+#include <io.h>
+#include <fcntl.h>
 #include "Service.h"
 #include "PeFile.h"
 #include "Helps.h"
@@ -13,33 +15,161 @@ HANDLE                  ghSvcStopEvent;
 HANDLE                  ghThread;
 HANDLE                  ghMutex;
 LPCTSTR                 glpMSO;
+tm                      gLogTime;
 
-VOID SvcWriteLog(LPTSTR szModule, LPTSTR szText) {
-    UNREFERENCED_PARAMETER(szModule);
-    UNREFERENCED_PARAMETER(szText);
+#ifdef UNICODE
+#define _tftime wcsftime
+#else
+#define _tftime strftime
+#endif
+
+BOOL FileReOpen(LPCTSTR lpszFileName, FILE* fs) {
+    HANDLE hFile = CreateFile(
+        lpszFileName,
+        GENERIC_WRITE,
+        FILE_SHARE_READ,
+        nullptr,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr
+    );
+    if (hFile == INVALID_HANDLE_VALUE) {
+        return FALSE;
+    }
+
+    int fd = _open_osfhandle((intptr_t)hFile, _O_APPEND);
+    if (fd == -1) {
+        CloseHandle(hFile);
+        return FALSE;
+    }
+
+    int err = _dup2(fd, _fileno(fs));
+    _close(fd);
+
+    return -1 != err;
+}
+
+BOOL InitializeLog() {
+    CString app;
+    AfxGetModuleFileName(AfxGetInstanceHandle(), app);
+
+    int index = app.ReverseFind(_T('\\'));
+    if (index == -1) return FALSE;
+
+    app = app.Left(index) + _T("\\logs");
+
+    time_t t = time(nullptr);
+    if (0 != localtime_s(&gLogTime, &t))return FALSE;
+
+    TCHAR buffer[26];
+    _tftime(buffer, 26, _T("\\log_%Y_%m_%d.txt"), &gLogTime);
+
+    if (!PathFileExists(app) && !CreateDirectory(app, nullptr)) {
+        return FALSE;
+    }
+
+    if (_fileno(stdout) == -2) {
+        FILE* fs;
+        if (0 != _tfreopen_s(&fs, app + _T("\\log.txt"), _T("a"), stdout)) {
+            return FALSE;
+        }
+    }
+    
+    app += buffer;
+
+    return TRUE == FileReOpen(app, stdout);
+}
+
+VOID SvcWriteLog(LPCTSTR szModule, LPCTSTR szText) {
+    time_t timer;
+    TCHAR buffer[26];
+    tm tm_info;
+
+    timer = time(NULL);
+    localtime_s(&tm_info, &timer);
+
+    if (gLogTime.tm_year != tm_info.tm_year ||
+        gLogTime.tm_mon != tm_info.tm_mon ||
+        gLogTime.tm_mday != tm_info.tm_mday) {
+        InitializeLog();
+    }
+
+    _tftime(buffer, 26, _T("%Y-%m-%d %H:%M:%S"), &tm_info);
+    _tprintf(_T("[%s] "),buffer);
+    _tprintf(_T("[%s]: %s\n"), szModule, szText);
+    fflush(stdout);
 }
 
 VOID PatchMSO() {
     WaitForSingleObject(ghMutex, INFINITE);
 
-    if (IsMsoPatched(glpMSO) == 0 && VerifyEmbeddedSignature(glpMSO)) {
-        CString msoPath = CString(glpMSO) + _T(".bak");
-        DeleteFile(msoPath);
+    switch (IsMsoPatched(glpMSO)) {
+    case 0:
+        if (VerifyEmbeddedSignature(glpMSO)) {
+            CString msoPath = CString(glpMSO) + _T(".bak");
+            DeleteFile(msoPath);
 
-        if (MoveFileW(glpMSO, msoPath)) {
-            PatchMsoFile(msoPath, glpMSO);
+            if (MoveFileW(glpMSO, msoPath)) {
+                switch (PatchMsoFile(msoPath, glpMSO)) {
+                case 0:
+                    SvcWriteLog(_T("PatchMSO"), _T("The patch was applied successfully."));
+                    break;
+
+                case 1:
+                    SvcWriteLog(_T("PatchMSO"), _T("Patch failed: Cannot read source file."));
+                    break;
+
+                case 2:
+                    SvcWriteLog(_T("PatchMSO"), _T("Patch failed: Cannot create new file."));
+                    break;
+
+                case 3:
+                    SvcWriteLog(_T("PatchMSO"), _T("Patch failed: Invalid file format."));
+                    break;
+
+                case 4:
+                case 5:
+                    SvcWriteLog(_T("PatchMSO"), _T("Patch failed: Unsupported file."));
+                    break;
+
+                case 6:
+                    SvcWriteLog(_T("PatchMSO"), _T("Patch failed: Insufficient memory resource."));
+                    break;
+
+                case 7:
+                    SvcWriteLog(_T("PatchMSO"), _T("Patch failed: Write file failed."));
+                    break;
+
+                case -1:
+                    SvcWriteLog(_T("PatchMSO"), _T("Patch failed."));
+                    break;
+                }
+            }
+            else {
+                CString msg;
+                msg.Format(_T("Backup MSO.DLL failed: %d."), GetLastError());
+
+                SvcWriteLog(_T("PatchMSO"), msg);
+            }
         }
+        else {
+            SvcWriteLog(_T("PatchMSO"), _T("The status of MSO.DLL is invalid (Signature)."));
+        }
+        break;
+
+    case 1:
+        SvcWriteLog(_T("PatchMSO"), _T("MSO.DLL has been patched."));
+        break;
+
+    case -1:
+        SvcWriteLog(_T("PatchMSO"), _T("The status of MSO.DLL is invalid."));
+        break;
     }
 
     ReleaseMutex(ghMutex);
 }
 
 DWORD WINAPI ThreadProc(PVOID) {
-
-#ifdef _DEBUG
-    while (!IsDebuggerPresent())Sleep(1000);
-#endif
-
     CString msop(glpMSO);
     int index = msop.ReverseFind(_T('\\'));
     if (index == -1) {
@@ -55,16 +185,18 @@ DWORD WINAPI ThreadProc(PVOID) {
     };
 
     if (INVALID_HANDLE_VALUE == handles[0] || !handles[0]) {
-        SvcWriteLog(TEXT("ThreadProc"), TEXT("FindFirstChangeNotification failed"));
+        SvcWriteLog(_T("ThreadProc"), _T("FindFirstChangeNotification failed"));
         return GetLastError();
     }
 
     while (1) {
+        SvcWriteLog(_T("ThreadProc"), _T("Wait for notifications..."));
+
         switch (WaitForMultipleObjects(sizeof(handles) / sizeof(HANDLE), handles, FALSE, INFINITE)) {
         case WAIT_OBJECT_0:
             
             if (!FindNextChangeNotification(handles[0])) {
-                SvcWriteLog(TEXT("ThreadProc"), TEXT("FindNextChangeNotification failed"));
+                SvcWriteLog(_T("ThreadProc"), _T("FindNextChangeNotification failed"));
                 FindCloseChangeNotification(handles[0]);
                 return GetLastError();
             }
@@ -78,7 +210,7 @@ DWORD WINAPI ThreadProc(PVOID) {
             return 0;
 
         default:
-            SvcWriteLog(TEXT("ThreadProc"), TEXT("WaitForMultipleObjects failed"));
+            SvcWriteLog(_T("ThreadProc"), _T("WaitForMultipleObjects failed"));
             return GetLastError();
         }
     }
@@ -133,50 +265,53 @@ VOID WINAPI SvcCtrlHandler(DWORD dwCtrl)
 
 VOID WINAPI SvcMain(DWORD dwArgc, LPTSTR* lpszArgv) {
 
+    gSvcStatusHandle = RegisterServiceCtrlHandler(SVCNAME, SvcCtrlHandler);
+    if (!gSvcStatusHandle) {
+        SvcWriteLog(_T("SvcMain"), _T("RegisterServiceCtrlHandler failed"));
+        return;
+    }
+
     int argc;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    DWORD status = NO_ERROR;
 
     do {
-        gSvcStatusHandle = RegisterServiceCtrlHandler(SVCNAME, SvcCtrlHandler);
-        if (!gSvcStatusHandle) {
-            SvcWriteLog(TEXT("SvcMain"), TEXT("RegisterServiceCtrlHandler failed"));
-            break;
-        }
-
         gSvcStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
         gSvcStatus.dwServiceSpecificExitCode = 0;
-
         ReportSvcStatus(SERVICE_START_PENDING, NO_ERROR, 3000);
 
         if (argc != 3 || _tcscmp(_T("-mso"), argv[1])) {
-            ReportSvcStatus(SERVICE_STOPPED, ERROR_INVALID_PARAMETER, 0);
+            status = ERROR_INVALID_PARAMETER;
             break;
         }
 
         ghSvcStopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
         if (ghSvcStopEvent == NULL) {
-            ReportSvcStatus(SERVICE_STOPPED, GetLastError(), 0);
+            status = GetLastError();
             break;
         }
 
         ghMutex = CreateGlobalMutex();
         if (ghMutex == NULL) {
-            ReportSvcStatus(SERVICE_STOPPED, GetLastError(), 0);
+            status = GetLastError();
             break;
         }
 
         glpMSO = argv[2];
         ghThread = CreateThread(NULL, 0, ThreadProc, NULL, 0, NULL);
         if (ghThread == NULL) {
-            ReportSvcStatus(SERVICE_STOPPED, GetLastError(), 0);
+            status = GetLastError();
             break;
         }
 
         ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
         WaitForSingleObject(ghThread, INFINITE);
-        ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
+
+        GetExitCodeThread(ghThread, &status);
+        CloseHandle(ghThread);
     } while (false);
 
+    ReportSvcStatus(SERVICE_STOPPED, status, 0);
 }
 
 BOOL WINAPI SvcRun() {

@@ -929,10 +929,15 @@ void COfficeActivatorDlg::OnBnClickedButtonSvcManage()
 	CString mso;
 	GetDlgItemText(IDC_EDIT_MSO_PATH, mso);
 
+	if (mso.GetLength() == 0) {
+		MessageBox(_T("Please select the location of the MSO.DLL file."), _T("Info"), MB_OK);
+		return;
+	}
+
 	AfxGetModuleFileName(AfxGetInstanceHandle(), app);
 
 	CString path;
-	path.Format(_T("%s -mso \"%s\""), app, mso);
+	path.Format(_T("%s -mso \"%s\""), (LPCTSTR)app, (LPCTSTR)mso);
 
 	CServiceManageDlg dlg(path);
 	dlg.DoModal();
