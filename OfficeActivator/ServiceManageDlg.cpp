@@ -154,6 +154,9 @@ void CServiceManageDlg::OnClose() {
 
 void CServiceManageDlg::OnBnClickedButtonCreate()
 {
+	SERVICE_DELAYED_AUTO_START_INFO sdasi;
+	sdasi.fDelayedAutostart = TRUE;
+
 	SC_HANDLE hSvc = CreateService(
 		hSCM,
 		SVCNAME,
@@ -169,7 +172,12 @@ void CServiceManageDlg::OnBnClickedButtonCreate()
 		nullptr,
 		nullptr
 	);
-	if (hSvc) {
+	if (hSvc &&
+		ChangeServiceConfig2(
+			hSvc,
+			SERVICE_CONFIG_DELAYED_AUTO_START_INFO,
+			&sdasi)) {
+
 		UpdateServiceStatus(hSvc);
 		CloseServiceHandle(hSvc);
 

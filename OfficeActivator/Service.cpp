@@ -1,8 +1,6 @@
 #include "pch.h"
 #include "framework.h"
 #include <winsvc.h>
-#include <io.h>
-#include <fcntl.h>
 #include "Service.h"
 #include "PeFile.h"
 #include "Helps.h"
@@ -16,38 +14,13 @@ HANDLE                  ghThread;
 HANDLE                  ghMutex;
 LPCTSTR                 glpMSO;
 tm                      gLogTime;
+FILE*                   gLogFile;
 
 #ifdef UNICODE
 #define _tftime wcsftime
 #else
 #define _tftime strftime
 #endif
-
-BOOL FileReOpen(LPCTSTR lpszFileName, FILE* fs) {
-    HANDLE hFile = CreateFile(
-        lpszFileName,
-        GENERIC_WRITE,
-        FILE_SHARE_READ,
-        nullptr,
-        CREATE_ALWAYS,
-        FILE_ATTRIBUTE_NORMAL,
-        nullptr
-    );
-    if (hFile == INVALID_HANDLE_VALUE) {
-        return FALSE;
-    }
-
-    int fd = _open_osfhandle((intptr_t)hFile, _O_APPEND);
-    if (fd == -1) {
-        CloseHandle(hFile);
-        return FALSE;
-    }
-
-    int err = _dup2(fd, _fileno(fs));
-    _close(fd);
-
-    return -1 != err;
-}
 
 BOOL InitializeLog() {
     CString app;
@@ -68,16 +41,11 @@ BOOL InitializeLog() {
         return FALSE;
     }
 
-    if (_fileno(stdout) == -2) {
-        FILE* fs;
-        if (0 != _tfreopen_s(&fs, app + _T("\\log.txt"), _T("a"), stdout)) {
-            return FALSE;
-        }
-    }
-    
     app += buffer;
 
-    return TRUE == FileReOpen(app, stdout);
+    if (gLogFile) fclose(gLogFile);
+    gLogFile = _tfsopen(app, _T("a"), SH_DENYWR);
+    return 0 != gLogFile;
 }
 
 VOID SvcWriteLog(LPCTSTR szModule, LPCTSTR szText) {
@@ -91,13 +59,15 @@ VOID SvcWriteLog(LPCTSTR szModule, LPCTSTR szText) {
     if (gLogTime.tm_year != tm_info.tm_year ||
         gLogTime.tm_mon != tm_info.tm_mon ||
         gLogTime.tm_mday != tm_info.tm_mday) {
-        InitializeLog();
+        if (!InitializeLog()) {
+            ASSERT(FALSE);
+        }
     }
 
     _tftime(buffer, 26, _T("%Y-%m-%d %H:%M:%S"), &tm_info);
-    _tprintf(_T("[%s] "),buffer);
-    _tprintf(_T("[%s]: %s\n"), szModule, szText);
-    fflush(stdout);
+    _ftprintf(gLogFile, _T("[%s] "), buffer);
+    _ftprintf(gLogFile, _T("[%s]: %s\n"), szModule, szText);
+    fflush(gLogFile);
 }
 
 VOID PatchMSO() {
@@ -180,7 +150,7 @@ DWORD WINAPI ThreadProc(PVOID) {
     PatchMSO();
 
     HANDLE handles[] = {
-        FindFirstChangeNotification(msop, FALSE, FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE),
+        FindFirstChangeNotification(msop, FALSE, FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_FILE_NAME),
         ghSvcStopEvent
     };
 
@@ -206,6 +176,7 @@ DWORD WINAPI ThreadProc(PVOID) {
             break;
 
         case WAIT_OBJECT_0 + 1:
+            SvcWriteLog(_T("ThreadProc"), _T("ghSvcStopEvent"));
             FindCloseChangeNotification(handles[0]);
             return 0;
 
