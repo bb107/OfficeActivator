@@ -107,5 +107,8 @@
     <Image Include="..\screenshots\main.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="..\screenshots\sc.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

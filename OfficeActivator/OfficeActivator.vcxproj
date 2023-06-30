@@ -229,6 +229,7 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\screenshots\main.png" />
+    <Image Include="..\screenshots\sc.png" />
     <Image Include="res\OfficeActivator.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
