@@ -73,6 +73,7 @@ VOID SvcWriteLog(LPCTSTR szModule, LPCTSTR szText) {
 }
 #else
 #define SvcWriteLog()
+#pragma warning(disable:4002)
 #endif
 
 VOID PatchMSO() {
