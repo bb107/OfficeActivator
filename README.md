@@ -3,6 +3,7 @@
 **Office Activator** is an Office activation tool.
 
 ![MainWindow](https://github.com/bb107/OfficeActivator/blob/master/screenshots/main.png?raw=true)
+![ServiceManage](https://github.com/bb107/OfficeActivator/blob/service/screenshots/sc.png?raw=true)
 
 Just like other activation tools,
 >**Office Activator is:**
@@ -69,3 +70,16 @@ Therefore, the patched Office has no activation time limit (difference from KMS)
 6. Check patch status. Typically, "SppcHook Patch State" and "MSO Patch State" are "SppcHook.dll not found." and "MSO.DLL is not patched." respectively. If this is not the case, and the indicator color is not green, you may need to reinstall Office.
 7. At this point, just click the "Apply patch" button. If successful, the patch status indicator will turn green. If you need to restore the patch, just click the "Restore" button.
 8. Enjoy!
+
+## Run OfficeActivator As Service
+OfficeActivator can now run as a Windows service, which will monitor the MSO.DLL for changes in the background, patching it as soon as Office is updated.
+> 1. Click the "Open Service Manager" button.
+> 2. Click the "Create Service" button in the pop-up window.
+> 3. Click the "Start Service" button.
+
+If you need to delete the service, just click the "Stop Service" button, and then click the "Delete Service" button.
+
+### Notes on running as a service:
+1. Service mode will only patch MSO.DLL, so you need to do it in window mode first.
+2. Once the service is created, please do not move the OfficeActivator folder to another location.
+3. OfficeActivator uses directory monitoring API to monitor files for changes, so it doesn't take too much system resources.

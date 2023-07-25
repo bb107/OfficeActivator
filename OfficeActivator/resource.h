@@ -6,6 +6,7 @@
 #define IDS_ABOUTBOX                    101
 #define IDD_OFFICEACTIVATOR_DIALOG      102
 #define IDR_MAINFRAME                   128
+#define IDD_DIALOG_SVC                  131
 #define IDC_GROUP_OFFICE                1002
 #define IDC_LABEL_MSO                   1003
 #define IDC_EDIT_MSO_PATH               1004
@@ -34,16 +35,26 @@
 #define IDC_COMBO_PRODUCT_KEY           1025
 #define IDC_BUTTON_INSTALL_LIC          1026
 #define IDC_BUTTON_INSTALL_PKEY         1027
-#define IDC_COMBO_LICENSES2             1028
 #define IDC_COMBO_LICENSES_VERSION      1028
+#define IDC_BUTTON_SVC_MANAGE           1029
+#define IDC_BUTTON_CREATE_SVC           1030
+#define IDC_BUTTON_START_SVC            1031
+#define IDC_BUTTON_STOP_SVC             1032
+#define IDC_BUTTON_DELETE_SVC           1033
+#define IDC_STATIC_LABEL                1034
+#define IDC_STATIC_STATUS               1035
+#define IDC_BUTTON_ENABLE_SVC           1036
+#define IDC_BUTTON_DISABLE_SVC          1037
+#define IDC_BUTTON_CREATE_SVC2          1038
+#define IDC_BUTTON_REFRESH_SVC          1038
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        131
+#define _APS_NEXT_RESOURCE_VALUE        133
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1027
+#define _APS_NEXT_CONTROL_VALUE         1039
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

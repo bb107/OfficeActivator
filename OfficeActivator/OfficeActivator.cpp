@@ -7,6 +7,7 @@
 #include "OfficeActivator.h"
 #include "OfficeActivatorDlg.h"
 #include "Sppc.h"
+#include "Service.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -20,6 +21,10 @@ COfficeActivatorApp theApp;
 
 BOOL COfficeActivatorApp::InitInstance()
 {
+	if (SvcRun()) {
+		return FALSE;
+	}
+
 	INITCOMMONCONTROLSEX InitCtrls;
 	InitCtrls.dwSize = sizeof(InitCtrls);
 	InitCtrls.dwICC = ICC_WIN95_CLASSES;

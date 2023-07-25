@@ -48,6 +48,15 @@
     <ClInclude Include="Sppc.h">
       <Filter>Header Files\Helps</Filter>
     </ClInclude>
+    <ClInclude Include="Service.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Mutex.h">
+      <Filter>Header Files\Helps</Filter>
+    </ClInclude>
+    <ClInclude Include="ServiceManageDlg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="OfficeActivator.cpp">
@@ -68,6 +77,15 @@
     <ClCompile Include="Sppc.cpp">
       <Filter>Source Files\Helps</Filter>
     </ClCompile>
+    <ClCompile Include="Service.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Mutex.cpp">
+      <Filter>Source Files\Helps</Filter>
+    </ClCompile>
+    <ClCompile Include="ServiceManageDlg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="OfficeActivator.rc">
@@ -87,6 +105,9 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="..\screenshots\main.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\screenshots\sc.png">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>
