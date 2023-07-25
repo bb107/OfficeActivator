@@ -13,6 +13,8 @@ HANDLE                  ghSvcStopEvent;
 HANDLE                  ghThread;
 HANDLE                  ghMutex;
 LPCTSTR                 glpMSO;
+
+#ifdef _OA_LOG
 tm                      gLogTime;
 FILE*                   gLogFile;
 
@@ -69,6 +71,9 @@ VOID SvcWriteLog(LPCTSTR szModule, LPCTSTR szText) {
     _ftprintf(gLogFile, _T("[%s]: %s\n"), szModule, szText);
     fflush(gLogFile);
 }
+#else
+#define SvcWriteLog()
+#endif
 
 VOID PatchMSO() {
     WaitForSingleObject(ghMutex, INFINITE);
